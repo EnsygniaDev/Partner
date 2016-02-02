@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Ensygnia Onescan SDK</title>
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" ></script>
+        <script type="text/javascript" src="//onescanresources.ensygnia.net/onescan/latest/scripts/onescan.js"></script>
+	</head>
+	<body>
+        <h1>Purchase</h1>
+        <div id="onescanPadlock_1"
+             class="onescanpadlock"
+             data-sessionurl="/OnescanSample/RequestOnescanSession"
+						 data-postconfirm="alert('Payment Complete');"
+             data-postfailed="alert('Payment Failed');"
+             data-polltarget="https://liveservice.ensygnia.net/api/PartnerGateway/1/CheckOnescanSessionStatus">
+        </div>
+	</body>
+</html>
