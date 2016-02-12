@@ -137,8 +137,9 @@ def addMerchantFields(purchaseMessage):
     fieldGroup1.GroupHeading = "Group 1"
     fieldGroup1.IsMandatory = True
     fieldGroup1.Code = "G1"
-    # GroupType can be Informational | ExclusiveChoice | MultipleChoice
+    # GroupType can be Informational | ExclusiveChoice
     fieldGroup1.GroupType = "ExclusiveChoice"
+    # Only applies when used with Payment Variants
     fieldGroup1.AppliesToEachItem = True
     field1 = onescanObject()
     field1.Label = "Option 1"

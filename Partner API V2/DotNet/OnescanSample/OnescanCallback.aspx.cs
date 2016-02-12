@@ -132,8 +132,9 @@ namespace OnescanSample
             fieldGroup1.Add("GroupHeading", "Group 1");
             fieldGroup1.Add("IsMandatory", true);
             fieldGroup1.Add("Code", "G1");
-            // GroupType can be Informational | ExclusiveChoice | MultipleChoice
+            // GroupType can be Informational | ExclusiveChoice
             fieldGroup1.Add("GroupType", "ExclusiveChoice");
+            // Only applies when used with Payment Variants
             fieldGroup1.Add("AppliesToEachItem", true);
             JObject field1 = new JObject();
             field1.Add("Label", "Option 1");

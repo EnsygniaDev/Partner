@@ -147,8 +147,9 @@ public class OnescanCallback extends HttpServlet {
 					put("GroupHeading", "Group 1");
 					put("IsMandatory", true);
 					put("Code", "G1");
-					// GroupType can be Informational | ExclusiveChoice | MultipleChoice
+					// GroupType can be Informational | ExclusiveChoice
 					put("GroupType", "ExclusiveChoice");
+					// Only applies when used with Payment Variants
 					put("AppliesToEachItem", true);
 					put("Fields", new JSONArray() {{
 						put(new JSONObject() {{

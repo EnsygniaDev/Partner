@@ -140,8 +140,9 @@ module Onescan   #:nodoc:
             :GroupHeading => "Group 1",
             :IsMandatory => true,
             :Code => "G1",
-            # GroupType can be Informational | ExclusiveChoice | MultipleChoice
+            # GroupType can be Informational | ExclusiveChoice
             :GroupType => "ExclusiveChoice",
+            # Only applies when used with Payment Variants
             :AppliesToEachItem => true,
             :Fields => [
               {
