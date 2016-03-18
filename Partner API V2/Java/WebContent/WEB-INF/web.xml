@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" version="3.0">
-
-  <!-- Get your Onescan Account Key and Secret from https://portal.ensygnia.net-->
   <context-param>
     <param-name>OnescanAccountKey</param-name>
-    <param-value>YOUR_ACCOUNT_KEY</param-value>
+    <param-value>YOUR ACCOUNT KEY</param-value>
   </context-param>
   <context-param>
     <param-name>OnescanSecret</param-name>
-    <param-value>YOUR_SECRET</param-value>
+    <param-value>YOUR SECRET</param-value>
   </context-param>
   <context-param>
     <param-name>OnescanCallbackURL</param-name>
-    <param-value>https://YOUR_SERVER_URL/OnescanSample/OnescanCallback</param-value>
+    <param-value>http://YOUR SERVER URL/OnescanSample/OnescanCallback</param-value>
+  </context-param>
+  <context-param>
+    <param-name>WebContentUrl</param-name>
+    <param-value>http://YOUR SERVER URL/OnescanSample/webcontent.html</param-value>
   </context-param>
   <context-param>
     <param-name>OnescanServerURL</param-name>
     <param-value>https://liveservice.ensygnia.net/api/PartnerGateway/2/RequestOneScanSession</param-value>
   </context-param>
-
-</web-app>
+  </web-app>

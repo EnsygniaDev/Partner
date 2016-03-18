@@ -1,8 +1,12 @@
 <?php
-// Get your Onescan AccountKey and secret from https://portal.ensygnia.net
-$config->OnescanAccountKey = "YOUR_ACCOUNT_KEY";
-$config->OnescanSecret = "YOUR_SECRET";
+// Get your Onescan AccountKey from https://portal.ensygnia.net
+$config->OnescanAccountKey = "YOUR ACCOUNT KEY";
+// Get your Onescan Secret from https://portal.ensygnia.net
+$config->OnescanSecret = "YOUR SECRET";
 // Set your callback URL
-$config->OnescanCallbackURL = "https://YOUR_SERVER_URL/OnescanCallback.php";
+$config->OnescanCallbackURL = "http://YOUR SERVER URL/OnescanCallback.php";
+// Set location to test the WebContent Process
+$config->WebContentUrl = "http://YOUR SERVER URL/webcontent.html";
+// URL for Onescan 
 $config->OnescanServerURL = "https://liveservice.ensygnia.net/api/partnergateway/2/RequestOnescanSession";
 ?>
