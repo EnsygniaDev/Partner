@@ -21,13 +21,13 @@ public class OnescanCallback extends HttpServlet {
 
 	private ServletContext appSettings;
 
-    public void init() throws ServletException {
-    	appSettings = getServletConfig().getServletContext();
+	public void init() throws ServletException {
+		appSettings = getServletConfig().getServletContext();
 	}
 
-    @Override
-    public void doPost(HttpServletRequest request, HttpServletResponse response)
-    	throws ServletException, IOException {
+	@Override
+	public void doPost(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
 
 		BufferedReader reader = request.getReader();
 
@@ -38,53 +38,76 @@ public class OnescanCallback extends HttpServlet {
 
 		String jsonContent = sb.toString();
 		try {
-	        HMAC.ValidateSignature(jsonContent,appSettings.getInitParameter("OnescanSecret"), request.getHeader(HMAC.HmacHeaderName));
+			HMAC.ValidateSignature(jsonContent,appSettings.getInitParameter("OnescanSecret"), request.getHeader(HMAC.HmacHeaderName));
 		} catch (Exception ex) {
 			throw new ServletException(ex);
 		}
 
-		JSONObject purchaseMessage = new JSONObject(jsonContent);
+		JSONObject onescanMessage = new JSONObject(jsonContent);
+
+		// the responseMessage to be returned to Onescan
+		JSONObject responseMessage = null;
 
 		// to allow correlation with the original payment request,
-		// on the original payment request purchaseMessage.getString("SessionId");
-		// this callback includes SessionId property that was set
-		// SessionData can also be set with other information the merchant wants
-		String messageType = purchaseMessage.getString("MessageType");
-        switch (messageType) {
-	    	case "StartPayment":
-	    		startPayment(purchaseMessage);
-				break;
+		// this callback includes SessionData property that can be set
+		// on the original payment request onescanMessage.getString("SessionData");
+		String messageType = onescanMessage.getString("MessageType");
+		switch (messageType) {
+		case "StartPayment":
+			responseMessage = startPayment(onescanMessage);
+			break;
 
-			case "AdditionalCharges":
-	    		additionalCharges(purchaseMessage);
-				break;
+		case "AdditionalCharges":
+			responseMessage = additionalCharges(onescanMessage);
+			break;
 
-			case "PaymentTaken":
-				// For 1-step payment processes (see your payment gateway set up)
-            case "PaymentConfirmed":
-				// For 2-step payment processes (see your payment gateway set up)
-            	purchaseDone(purchaseMessage);
-            	break;
+		case "PaymentTaken":
+			// For 1-step payment processes (see your payment gateway set up)
+			responseMessage = purchaseDone(onescanMessage);
+			break;
 
-            case "PaymentCaptured":
-				// TODO Handle capture (if 2-step transaction used).
-                break;
+		case "PaymentConfirmed":
+			// For 2-step payment processes (see your payment gateway set up)
+			responseMessage = purchaseDone(onescanMessage);
+			break;
 
-            case "PaymentFailed":
-                // TODO: Handle a payment failure (check errors)
-                break;
+		case "PaymentCaptured":
+			// TODO Handle capture (if 2-step transaction used).
+			responseMessage = createSuccessMessage(onescanMessage);
+			break;
 
-            case "PaymentCancelled":
-				// TODO: Handle cancelled event
-                break;
+		case "PaymentFailed":
+			// TODO: Handle a payment failure (check errors)
+			responseMessage = createSuccessMessage(onescanMessage);
+			break;
 
-            default:
-                throw new ServletException("Unexpected Message Type " + messageType +
-                ". See documentation on how to respond to other message types.");
-        }
+		case "PaymentCancelled":
+			// TODO: Handle cancelled event
+			responseMessage = createSuccessMessage(onescanMessage);
+			break;
+			// Web Content Process
+		case "WebContent":
+			responseMessage = createWebContentMessage(onescanMessage);
+			break;
 
-        String jsonResponse = purchaseMessage.toString();
-        // Create and sign the headers.
+        case "StartLogin":
+            // Called with LoginModes: TokenOrCredentials and UserToken
+            responseMessage = createStartLoginMessage(onescanMessage);
+            break;
+
+        case "Login":
+            // Called with LoginModes: TokenOrCredentials and UserToken (if first request did not complete)
+            // and for "UsernamePassword", "Register"
+            responseMessage = createLoginMessage(onescanMessage);
+            break;
+
+        default:
+			throw new ServletException("Unexpected Message Type " + messageType +
+					". See documentation on how to respond to other message types.");
+		}
+
+		String jsonResponse = responseMessage.toString();
+		// Create and sign the headers.
 		response.setContentType("application/json");
 		String acckey = appSettings.getInitParameter("OnescanAccountKey");
 		response.setHeader("x-onescan-account", acckey);
@@ -97,13 +120,33 @@ public class OnescanCallback extends HttpServlet {
 		response.setHeader("x-onescan-signature", hmac);
 
 		response.getWriter().write(jsonResponse);
-    }
+	}
 
 
-	void startPayment(JSONObject purchaseMessage) {
+	private JSONObject startPayment(JSONObject onescanMessage) {
 
-		JSONObject purchasePayload = new JSONObject() {{
+		JSONObject responseMessage = new JSONObject();
+
+		responseMessage.put("PurchasePayload",  addPurchasePayload(onescanMessage));
+
+		// TODO: Optionally add purchase variants
+		//responseMessage.put("PaymentVariants",addPaymentVariants(onescanMessage));
+
+		// TODO: Optionally add merchant field options
+		//responseMessage.put("MerchantFields",addMerchantFields(onescanMessage));
+
+		// TODO: Check out the API docs from the portal for other features
+
+		return responseMessage;
+	}
+
+	private JSONObject addPurchasePayload(JSONObject onescanMessage)
+	{
+		return new JSONObject() {{
 			put("MerchantName", "eZone");
+			// This is passed to the payment gateway service as your reference.
+			  // It could be OrderId for purchases for example.
+			put("MerchantTransactionId", "YOUR UNIQUE TRANSACTION ID");
 			put("Currency", "GBP");
 			// turn on or off - requirement for delivery address
 			put("RequiresDeliveryAddress", true);
@@ -111,7 +154,7 @@ public class OnescanCallback extends HttpServlet {
 			// also used by payment variants on the orderaccepted screen too
 			put("ImageData", "http://www.ensygnia.com/wp-content/uploads/onescan-square-image.png");
 
-		// TODO: include following when including AdditionalCharges callback
+			// TODO: include following when including AdditionalCharges callback
 			// ensure RequiresDeliveryAddress is true
 			//put("Requires", new JSONObject() {{
 			//	put("DeliveryOptions",true);
@@ -125,23 +168,13 @@ public class OnescanCallback extends HttpServlet {
 			put("PaymentAmount", 24.00);
 
 			// TODO: Used when Payment Variants are enabled
-			//put("CallToAction", "Buy me!");
+			put("CallToAction", "Buy me!");
 		}};
-
-		purchaseMessage.put("PurchasePayload", purchasePayload);
-
-		// TODO: Optionally add purchase variants
-		//addPaymentVariants(purchaseMessage);
-
-		// TODO: Optionally add merchant field options
-		//addMerchantFields(purchaseMessage);
-
-		// TODO: Check out the API docs from the portal for other features
 	}
 
-	void addMerchantFields(JSONObject purchaseMessage)
+	private JSONObject addMerchantFields(JSONObject onescanMessage)
 	{
-		purchaseMessage.put("MerchantFields", new JSONObject() {{
+		return new JSONObject() {{
 			put("FieldGroups", new JSONArray() {{
 				put(new JSONObject() {{
 					put("GroupHeading", "Group 1");
@@ -169,12 +202,13 @@ public class OnescanCallback extends HttpServlet {
 					}});
 				}});
 			}});
-		}});
+		}};
+
 	}
 
-	private void addPaymentVariants(JSONObject purchaseMessage) {
+	private JSONObject addPaymentVariants(JSONObject onescanMessage) {
 
-		purchaseMessage.put("PaymentVariants", new JSONObject() {{
+		return new JSONObject() {{
 			// VariantSelectionType can be SingleChoice | MultipleChoice
 			put("VariantSelectionType", "SingleChoice");
 			put("Variants", new JSONArray() {{
@@ -197,59 +231,129 @@ public class OnescanCallback extends HttpServlet {
 					put("SelectByDefault", false);
 				}});
 			}});
-		}});
-	}
-
-	private void additionalCharges(JSONObject purchaseMessage) {
-		purchaseMessage.put("AdditionalCharges", new JSONObject() {{
-	        // TODO: Include if the address supplied cant be delivered to
-			//put("AddressNotSupported", true);
-			//put("AddressNotSupportedReason", "We are very sorry but we cannot deliver to this location.");
-			put("DeliveryOptions", new JSONArray() {{
-				put(new JSONObject() {{
-					put("Code", "FIRST");
-					put("Description","Royal Mail First Class");
-					put("IsDefault",true);
-					put("Label","First class");
-					put("Charge", new JSONObject() {{
-						put("BaseAmount",2.99);
-						put("Tax",0.00);
-						put("TotalAmount", 2.99);
-					}});
-				}});
-				put(new JSONObject() {{
-					put("Code", "SECOND");
-					put("Description","Royal Mail Second Class");
-					put("IsDefault",false);
-					put("Label","Second class");
-					put("Charge", new JSONObject() {{
-						put("BaseAmount",1.99);
-						put("Tax",0.00);
-						put("TotalAmount", 1.99);
-					}});
-				}});
-			}});
-			put("PaymentMethodCharge", new JSONObject() {{
-				put("Code", "PLAY");
-				put("Description", "This attracts a surcharge");
-				put("Charge", new JSONObject() {{
-					put("BaseAmount",1.00);
-					put("Tax",0.00);
-					put("TotalAmount", 1.00);
-				}});
-			}});
-		}});
-	}
-
-	private void purchaseDone(JSONObject purchaseMessage)
-	{
-		JSONObject orderAccepted = new JSONObject() {{
-			put("OrderId", "YOUR_ORDER_NUMBER");
-	    	put("Name","Onescan.OrderAccepted");
 		}};
-		purchaseMessage.put("OrderAccepted",orderAccepted);
-		purchaseMessage.put("MessageType","OrderAccepted");
-		purchaseMessage.put("Success",true);
 	}
+
+	private JSONObject additionalCharges(JSONObject onescanMessage) {
+		return new JSONObject() {{
+			put("AdditionalCharges", new JSONObject() {{
+
+				// TODO: Include if the address supplied cant be delivered to
+				//put("AddressNotSupported", true);
+				//put("AddressNotSupportedReason", "We are very sorry but we cannot deliver to this location.");
+
+				put("DeliveryOptions", new JSONArray() {{
+					put(new JSONObject() {{
+						put("Code", "FIRST");
+						put("Description","Royal Mail First Class");
+						put("IsDefault",true);
+						put("Label","First class");
+						put("Charge", new JSONObject() {{
+							put("BaseAmount",2.99);
+							put("Tax",0.00);
+							put("TotalAmount", 2.99);
+						}});
+					}});
+					put(new JSONObject() {{
+						put("Code", "SECOND");
+						put("Description","Royal Mail Second Class");
+						put("IsDefault",false);
+						put("Label","Second class");
+						put("Charge", new JSONObject() {{
+							put("BaseAmount",1.99);
+							put("Tax",0.00);
+							put("TotalAmount", 1.99);
+						}});
+					}});
+				}});
+				put("PaymentMethodCharge", new JSONObject() {{
+					put("Code", "PLAY");
+					put("Description", "This attracts a surcharge");
+					put("Charge", new JSONObject() {{
+						put("BaseAmount",1.00);
+						put("Tax",0.00);
+						put("TotalAmount", 1.00);
+					}});
+				}});
+			}});
+		}};
+	}
+
+	private JSONObject purchaseDone(JSONObject onescanMessage)
+	{
+		return new JSONObject() {{
+			put("OrderAccepted", new JSONObject() {{
+				put("OrderId", "YOUR_ORDER_NUMBER");
+			}});
+			put("MessageType","OrderAccepted");
+			put("Success",true);
+		}};
+	}
+
+	private JSONObject createSuccessMessage(JSONObject onescanMessage)
+	{
+		return new JSONObject() {{
+			put("Success",true);
+		}};
+	}
+
+	private JSONObject createWebContentMessage(JSONObject onescanMessage)
+	{
+		return new JSONObject() {{
+			put("WebContent", new JSONObject() {{
+				put("WebUrl", appSettings.getInitParameter("WebContentUrl"));
+				put("ProcessCompleteUrl", "http://close-window");
+				put("FieldMappings", new JSONArray() {{
+					put(new JSONObject() {{
+						put("DataItem","FirstName");
+						put("HtmlId","html_id_1");
+					}});
+					put(new JSONObject() {{
+						put("DataItem","LastName");
+						put("HtmlId","html_id_2");
+					}});
+					put(new JSONObject() {{
+						put("DataItem","Email");
+						put("HtmlId","html_id_3");
+					}});
+				}});
+			}});
+		}};
+	}
+
+    private JSONObject createLoginMessage(JSONObject onescanMessage)
+    {
+        // Called with LoginModes: TokenOrCredentials and UserToken
+        JSONObject responseMessage = new JSONObject();
+
+        JSONObject processOutcome = new JSONObject();
+        processOutcome.put("RedirectURL", "loginresult.html");
+        responseMessage.put("ProcessOutcome",processOutcome);
+
+        // TODO: Other return MessageTypes for TokenOrCredentials include "RetryLogin" or "LoginProblem"
+        // For UserToken then "RegisterUser" can be used to get the user to release their personal info
+        responseMessage.put("Success", true);
+        responseMessage.put("MessageType","ProcessComplete");
+
+        return responseMessage;
+    }
+
+    private JSONObject createStartLoginMessage(JSONObject onescanMessage)
+    {
+        // Called with LoginModes: TokenOrCredentials and UserToken (if first request did not complete)
+        // and for "UsernamePassword", "Register"
+        JSONObject responseMessage = new JSONObject();
+
+        JSONObject processOutcome = new JSONObject();
+        processOutcome.put("RedirectURL", "loginresult.html");
+        responseMessage.put("ProcessOutcome", processOutcome);
+
+        // TODO: Other return MessageTypes for UsernamePassword, TokenOrCredentials are "RetryLogin" or "LoginProblem"
+        // For UserToken and Register is "LoginProblem"
+        responseMessage.put("Success", true);
+        responseMessage.put("MessageType","ProcessComplete");
+
+        return responseMessage;
+    }
 
 }

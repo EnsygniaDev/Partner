@@ -70,14 +70,23 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Index.html" />
+    <Content Include="LoginResult.aspx" />
     <Content Include="OnescanCallback.aspx" />
     <Content Include="RequestOnescanSession.aspx" />
     <Content Include="Web.config">
       <SubType>Designer</SubType>
     </Content>
+    <Content Include="WebContent.html" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="HMAC.cs" />
+    <Compile Include="LoginResult.aspx.cs">
+      <DependentUpon>LoginResult.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="LoginResult.aspx.designer.cs">
+      <DependentUpon>LoginResult.aspx</DependentUpon>
+    </Compile>
     <Compile Include="OnescanCallback.aspx.cs">
       <DependentUpon>OnescanCallback.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>

@@ -16,49 +16,62 @@ def processMessage():
     onescanHMAC.validateSignature(jsonContent.encode("utf-8"),onescanConfig.SECRET, onescanSignature)
 
     # Parse the payload json into an object
-    purchaseMessage = onescanObject(jsonContent)
+    onescanMessage = onescanObject(jsonContent)
+
+    # The responseMessage to be returned to Onescan
+    responseMessage = None
 
     # to allow correlation with the original payment request,
-    # this callback includes SessionId property that was set
-    # on the original payment request purchaseMessageSessionId;
-    # SessionData can also be set with other information the merchant wants
-    if purchaseMessage.MessageType == "StartPayment":
-        startPayment(purchaseMessage)
+    # this callback includes SessionData property that can be set
+    # on the original payment request onescanMessage.SessionData.
+    if onescanMessage.MessageType == "StartPayment":
+        responseMessage = startPayment(onescanMessage)
 
-    elif purchaseMessage.MessageType == "AdditionalCharges":
+    elif onescanMessage.MessageType == "AdditionalCharges":
         # Optionally include delivery options
         # Needs surcharges and deliveroptions set to true in start payment callback
-        additionalCharges(purchaseMessage)
+        responseMessage = additionalCharges(onescanMessage)
 
-    elif purchaseMessage.MessageType == "PaymentTaken":
+    elif onescanMessage.MessageType == "PaymentTaken":
         # For 1-step payment processes (see your payment gateway set up)
-        paymentDone(purchaseMessage)
+        responseMessage = paymentDone(onescanMessage)
 
-    elif purchaseMessage.MessageType == "PaymentConfirmed":
+    elif onescanMessage.MessageType == "PaymentConfirmed":
         # For 2-step payment processes (see your payment gateway set up)
-        paymentDone(purchaseMessage)
+        responseMessage = paymentDone(onescanMessage)
 
-    elif purchaseMessage.MessageType == "PaymentCaptured":
+    elif onescanMessage.MessageType == "PaymentCaptured":
         # TODO Handle capture (if 2 phase transaction used).
-        pass
-    elif purchaseMessage.MessageType == "PaymentFailed":
-        # TODO: Handle a payment failure (check errors)
-        pass
-    elif purchaseMessage.MessageType == "PaymentCancelled":
-        # TODO: Handle cancelled event
-        pass
-    else:
-        raise Exception("Unexpected Message Type " + purchaseMessage.MessageType + ". See documentation on how to respond to other message types.")
+        responseMessage = createSuccessMessage(onescanMessage)
 
-    jsonMessage = json.dumps(purchaseMessage, default=lambda o: o.__dict__)
+    elif onescanMessage.MessageType == "PaymentFailed":
+        # TODO: Handle a payment failure (check errors)
+        responseMessage = createSuccessMessage(onescanMessage)
+
+    elif onescanMessage.MessageType == "PaymentCancelled":
+        # TODO: Handle cancelled event
+        responseMessage = createSuccessMessage(onescanMessage)
+
+    # Web Content Process
+    elif onescanMessage.MessageType == "WebContent":
+        responseMessage = createWebContentMessage(onescanMessage)
+
+    elif onescanMessage.MessageType == "StartLogin":
+        # Called with LoginModes: TokenOrCredentials and UserToken
+        responseMessage = createStartLoginMessage(onescanMessage)
+
+    elif onescanMessage.MessageType == "Login":
+        # Called with LoginModes: TokenOrCredentials and UserToken (if first request did not complete)
+        # and for "UsernamePassword", "Register"
+        responseMessage = createLoginMessage(onescanMessage)
+
+    else:
+        raise Exception("Unexpected Message Type " + onescanMessage.MessageType + ". See documentation on how to respond to other message types.")
+
+    jsonMessage = json.dumps(responseMessage, default=lambda o: o.__dict__)
     response = jsonMessage.encode("utf-8")
     # Create and sign the headers
     hmac = onescanHMAC.encode(response,onescanConfig.SECRET)
-
-
-    import logging
-    logging.basicConfig(filename="debug.log",level=logging.DEBUG)
-    logging.info(jsonMessage)
 
     print("content-type: application/json")
     print("x-onescan-account: " + onescanConfig.ACCOUNT_KEY)
@@ -68,9 +81,26 @@ def processMessage():
     sys.stdout.buffer.write(response)
     sys.stdout.flush()
 
-def startPayment(purchaseMessage):
+def startPayment(onescanMessage):
+    responseMessage = onescanObject()
+    responseMessage.purchasePayload = addPurchasePayload(onescanMessage)
+
+    # TODO: Optionally add purchase variants
+    #responseMessage.PaymentVariants = addPaymentVariants(onescanMessage)
+
+    # TODO: Optionally add merchant field options
+    #responseMessage.MerchantFields = addMerchantFields(onescanMessage)
+
+    # TODO: Check out the API docs from the portal for other features
+
+    return responseMessage
+
+def addPurchasePayload(onescanMessage):
     purchasePayload = onescanObject()
     purchasePayload.MerchantName = "eZone"
+    # This is passed to the payment gateway service as your reference.
+    # It could be OrderId for purchases for example.
+    purchasePayload.MerchantTransactionId = "YOUR UNIQUE TRANSACTION ID"
     purchasePayload.Currency = "GBP"
     # turn on or off - requirement for delivery address
     purchasePayload.RequiresDeliveryAddress = True
@@ -94,17 +124,9 @@ def startPayment(purchaseMessage):
     # TODO: Used when Payment Variants are enabled
     #purchasePayload.CallToAction = "Buy me!"
 
-    purchaseMessage.PurchasePayload = purchasePayload
+    return purchasePayload
 
-    # TODO: Optionally add purchase variants
-    #addPaymentVariants(purchaseMessage)
-
-    # TODO: Optionally add merchant field options
-    #addMerchantFields(purchaseMessage)
-
-    # TODO: Check out the API docs from the portal for other features
-
-def addPaymentVariants(purchaseMessage):
+def addPaymentVariants(onescanMessage):
     paymentVariants = onescanObject()
     # VariantSelectionType can be SingleChoice | MultipleChoice
     paymentVariants.VariantSelectionType = "SingleChoice"
@@ -128,10 +150,9 @@ def addPaymentVariants(purchaseMessage):
         variant1,
         variant2
     ]
-    purchaseMessage.PaymentVariants = paymentVariants
+    return paymentVariants
 
-
-def addMerchantFields(purchaseMessage):
+def addMerchantFields(onescanMessage):
     merchantFields = onescanObject()
     fieldGroup1 = onescanObject()
     fieldGroup1.GroupHeading = "Group 1"
@@ -160,9 +181,9 @@ def addMerchantFields(purchaseMessage):
     merchantFields.FieldGroups = [
         fieldGroup1
     ]
-    purchaseMessage.MerchantFields = merchantFields
+    return merchantFields
 
-def additionalCharges(purchaseMessage):
+def additionalCharges(onescanMessage):
     additionalCharges = onescanObject()
     # TODO: Include if the address supplied cant be delivered to
     #additionalCharges.AddressNotSupported = True
@@ -207,18 +228,85 @@ def additionalCharges(purchaseMessage):
     charge3.Tax = 0.0
     charge3.TotalAmount = 1.00
     paymentMethodCharge.Charge = charge3
-
     additionalCharges.PaymentMethodCharge = paymentMethodCharge
 
-    purchaseMessage.AdditionalCharges = additionalCharges
+    responseMessage = onescanObject()
+    responseMessage.AdditionalCharges = additionalCharges
 
-def paymentDone(purchaseMessage):
+    return responseMessage
+
+def paymentDone(onescanMessage):
+    responseMessage = onescanObject()
+
     orderAccepted = onescanObject()
     orderAccepted.OrderId = "YOUR_ORDER_NUMBER"
-    orderAccepted.Name = "Onescan.OrderAccepted"
-    purchaseMessage.OrderAccepted = orderAccepted
-    purchaseMessage.MessageType = "OrderAccepted"
-    purchaseMessage.Success = True
+    responseMessage.OrderAccepted = orderAccepted
+
+    responseMessage.MessageType = "OrderAccepted"
+    responseMessage.Success = True
+
+    return responseMessage
+
+def createSuccessMessage(onescanMessage):
+    responseMessage = onescanObject()
+    responseMessage.Success = True
+    return responseMessage
+
+def createWebContentMessage(onescanMessage):
+    field1 = onescanObject()
+    field1.DataItem = "FirstName"
+    field1.HtmlId = "html_id_1"
+    field2 = onescanObject()
+    field2.DataItem = "LastName"
+    field2.HtmlId = "html_id_2"
+    field3 = onescanObject()
+    field3.DataItem = "Email"
+    field3.HtmlId = "html_id_3"
+
+    webContent = onescanObject()
+    webContent.WebUrl = onescanConfig.WEBCONTENT_URL
+    webContent.ProcessCompleteUrl = "http://close-window"
+    webContent.fieldMappings = [
+        field1,
+        field2,
+        field3
+    ]
+
+    responseMessage = onescanObject()
+    responseMessage.WebContent = webContent
+
+    return responseMessage
+
+def createLoginMessage(onescanMessage):
+    # Called with LoginModes: TokenOrCredentials and UserToken
+    responseMessage = onescanObject();
+
+    processOutcome = onescanObject();
+    processOutcome.RedirectURL = "/loginresult.html"
+    responseMessage.ProcessOutcome = processOutcome
+
+    # TODO: Other return MessageTypes for TokenOrCredentials include "RetryLogin" or "LoginProblem"
+    # For UserToken then "RegisterUser" can be used to get the user to release their personal info
+    responseMessage.Success = True
+    responseMessage.MessageType = "ProcessComplete"
+
+    return responseMessage
+
+def createStartLoginMessage(onescanMessage):
+    # Called with LoginModes: TokenOrCredentials and UserToken (if first request did not complete)
+    # and for "UsernamePassword", "Register"
+    responseMessage = onescanObject();
+
+    processOutcome = onescanObject();
+    processOutcome.RedirectURL = "/loginresult.html"
+    responseMessage.ProcessOutcome = processOutcome
+
+    # TODO: Other return MessageTypes for UsernamePassword, TokenOrCredentials are "RetryLogin" or "LoginProblem"
+    # For UserToken and Register is "LoginProblem"
+    responseMessage.Success = True
+    responseMessage.MessageType = "ProcessComplete"
+
+    return responseMessage
 
 
 #Initial call to kick the process off

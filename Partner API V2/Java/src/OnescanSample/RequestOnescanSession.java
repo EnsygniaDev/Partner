@@ -16,6 +16,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 
@@ -35,13 +36,20 @@ public class RequestOnescanSession extends HttpServlet {
 		throws ServletException, IOException {
 
 		// Build the Request Onescan Session payload
-		JSONObject purchaseRequest = new JSONObject() {{
+		JSONObject onescanRequest = new JSONObject() {{
 			put("ProcessType", "Payment");
 			put("MessageType", "StartPayment");
-			// The Session properties are set by you to represent a hook to the users
-			// session in some way and will be passed back with each callback
+			// TODO: For WebContent Processes change the process and messagetypes:
+			//put("ProcessType", "WebContent");
+			//put("MessageType", "WebContent");
+            // TODO: For Login Processes:
+	        //put("ProcessType", "Login");
+	        //put("MessageType", "StartLogin");
+	        //put("LoginPayload", createLoginRequest());
+
+			// The Session Data property can be set by you to represent a hold data relating
+			// to the users session in some way and will be passed back with each callback
 			// so you can locate the session (eg Order number) that the request belongs to.
-			put("SessionId", UUID.randomUUID().toString());
 			put("SessionData", "CUSTOM SESSION DATA");
 			put("Version", (int)2);
 			put("MetaData", new JSONObject() {{
@@ -51,7 +59,7 @@ public class RequestOnescanSession extends HttpServlet {
 			// TODO: You can set the PurchasePayload early if you wish (see StartPayment callback)
 		}};
 
-	    String purchaseRequestMessage = purchaseRequest.toString();
+	    String onescanRequestMessage = onescanRequest.toString();
 
 	    OutputStream postStream = null;
 	    BufferedReader reader = null;
@@ -65,12 +73,12 @@ public class RequestOnescanSession extends HttpServlet {
 	    	http.setRequestProperty("Content-Type", "application/json");
 	    	String acckey = appSettings.getInitParameter("OnescanAccountKey");
 	    	http.setRequestProperty("x-onescan-account", acckey);
-	    	String hmac = HMAC.Hash(purchaseRequestMessage, appSettings.getInitParameter("OnescanSecret"));
+	    	String hmac = HMAC.Hash(onescanRequestMessage, appSettings.getInitParameter("OnescanSecret"));
 	    	http.setRequestProperty(HMAC.HmacHeaderName, hmac);
 
 	    	http.setRequestMethod("POST");
 
-	    	byte[] lbPostBuffer = purchaseRequestMessage.getBytes("UTF-8");
+	    	byte[] lbPostBuffer = onescanRequestMessage.getBytes("UTF-8");
     		http.setRequestProperty("Content-Length", String.valueOf(lbPostBuffer.length));
 
     		http.setDoOutput(true);
@@ -102,4 +110,19 @@ public class RequestOnescanSession extends HttpServlet {
     	out.print(jsonResponse);
 
 	}
+
+    private JSONObject createLoginRequest()
+    {
+        return new JSONObject() {{
+        	put("FriendlyName", "Demo site");
+        	put("SiteIdentifier", "YOUR UNIQUE SITE ID");
+        	//TODO: Other LoginModes are: TokenOrCredentials, UserToken, TokenOrCredentials, Register
+        	put("LoginMode", "UsernamePassword");
+
+        	//TODO: Profiles are required for Register (and with UserToken when the response MessageType "RegisterUser" is used.
+        	put("Profiles", new JSONArray() {{
+        		put("basic");
+        	}});
+        }};
+    }
 }
