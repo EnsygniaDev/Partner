@@ -41,6 +41,11 @@ namespace OnescanSample
 
             var onescanRequestMessage = JsonConvert.SerializeObject(onescanRequest);
 
+            // TODO: Onescan no longer supports TLS1.0 and SSL 3. 
+            // TLS10 can be the default for many .NET servers so you may need the following command to force a change of protocol
+            // This code is just here to higlight the requirement and you should consider moving it to your start up code in global.asax for example
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
             HttpWebRequest http = (HttpWebRequest)WebRequest.Create(ConfigurationManager.AppSettings["OnescanServerURL"]);
             http.ContentType = "application/json";
             string acckey = ConfigurationManager.AppSettings["OnescanAccountKey"];
