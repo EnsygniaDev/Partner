@@ -1,4 +1,4 @@
-package com.sample.app
+package com.sample.app;
 
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
