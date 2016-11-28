@@ -1,0 +1,6 @@
+{
+  "name": "Onescan Partner APIs",
+  "tagline": "Onescan Partner APIs and SDKs for external partners",
+  "body": "### Welcome to the Onescan Partner API page.\r\nUse the following samples to accelerate your integration with the Onescan platform. Not a partner yet? Simply, register at (https://portal.ensygnia.net) with your Onescan mobile app and get your account keys.\r\n\r\nWant to take the APIs on a test drive, then why not try our [API harness](http://apiharness.ensygnia.net) using your Onescan mobile app.\r\n \r\n### Support or Contact\r\nHaving trouble with Onescan then please check out further documentation at [documentation](https://portal.ensygnia.net) or [contact support](https://onescan.freshdesk.com) and we’ll help you sort things outout.\r\n",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
